@@ -9,6 +9,7 @@ SECRET_KEY=your-secret-key
 генерация ключа через 
 ```python
 os.urandom(24).hex()
+
 ```
 запуск приложения
 ```bash
