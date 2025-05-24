@@ -1,6 +1,6 @@
 установка зависимостей
 ```bash
-pip install flask flask-login flask-wtf pandas openpyxl bcrypt
+pip install -r requierements.txt
 ```
 файл .env
 ```env
