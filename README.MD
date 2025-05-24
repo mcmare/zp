@@ -25,6 +25,16 @@ curl -X POST -F "username=testuser" -F "password=testpass" http://127.0.0.1:5001
 ```
 Регистрация доступна только с 127.0.0.1.
 
+## Развертывание
+```bash
+sudo apt update && sudo apt upgrade
+sudo apt install python3 python3-pip python3-venv nginx
+```
+
+```bash
+git clone https://github.com/mcmare/zp.git
+```
+
 ## Примечания
 - Безопасность: Используются параметризованные запросы для защиты от SQL-инъекций, markupsafe.escape для защиты от XSS, CSRF-токены в формах.
 - Excel: Файлы сохраняются на сервере и отправляются пользователю. Для продакшена рекомендуется добавить очистку временных файлов.
