@@ -7,7 +7,7 @@ import pandas as pd
 import bcrypt
 import os
 from flask_wtf import FlaskForm
-from wtforms import StringField, FloatField, PasswordField, SubmitField, DateField
+from wtforms import StringField, FloatField, PasswordField, SubmitField, DateField, SelectField
 from wtforms.validators import DataRequired, NumberRange
 from wtforms.widgets import TextInput
 from flask_wtf.csrf import CSRFProtect
@@ -58,6 +58,12 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Войти', render_kw={"class": "btn btn-primary"})
 
 
+# Форма для выбора месяца
+class MonthForm(FlaskForm):
+    month = SelectField('Месяц', validators=[DataRequired()], render_kw={"class": "form-select"})
+    submit = SubmitField('Выбрать', render_kw={"class": "btn btn-primary"})
+
+
 # Инициализация базы данных
 def init_db():
     conn = sqlite3.connect('orders.db')
@@ -81,22 +87,25 @@ def init_db():
 @app.route('/', methods=['GET', 'POST'])
 @login_required
 def index():
-    selected_month = request.form.get('month', datetime.now().strftime('%Y-%m'))
+    form = MonthForm()
     conn = sqlite3.connect('orders.db')
     c = conn.cursor()
+    # Получение уникальных месяцев
+    c.execute('SELECT DISTINCT strftime("%Y-%m", date) FROM orders WHERE user_id = ? ORDER BY date DESC',
+              (current_user.id,))
+    months = [(row[0], row[0].replace('-', '.')) for row in c.fetchall()]
+    form.month.choices = months if months else [(datetime.now().strftime('%Y-%m'), datetime.now().strftime('%Y.%m'))]
+
+    selected_month = form.month.data if form.validate_on_submit() else datetime.now().strftime('%Y-%m')
+
     c.execute(
         'SELECT id, amount, order_number, date FROM orders WHERE strftime("%Y-%m", date) = ? AND user_id = ? ORDER BY date',
         (selected_month, current_user.id))
     orders = [{'id': row[0], 'amount': row[1], 'order_number': escape(row[2]),
                'date': datetime.strptime(row[3], '%Y-%m-%d').strftime('%d.%m.%Y')} for row in c.fetchall()]
-
-    # Получение уникальных месяцев
-    c.execute('SELECT DISTINCT strftime("%Y-%m", date) FROM orders WHERE user_id = ? ORDER BY date DESC',
-              (current_user.id,))
-    months = [row[0] for row in c.fetchall()]
     conn.close()
 
-    return render_template('index.html', orders=orders, months=months, selected_month=selected_month)
+    return render_template('index.html', orders=orders, form=form, selected_month=selected_month)
 
 
 # Добавление записи
@@ -245,4 +254,3 @@ def logout():
 if __name__ == '__main__':
     init_db()
     app.run(debug=True)
-

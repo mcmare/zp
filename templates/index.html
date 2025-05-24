@@ -4,15 +4,11 @@
     <h1 class="mb-4">Заказ-наряды</h1>
     <div class="mb-3">
         <form method="POST" action="{{ url_for('index') }}">
+            {{ form.hidden_tag() }}
             <div class="input-group">
-                <select name="month" class="form-select" onchange="this.form.submit()">
-                    {% for month in months %}
-                        <option value="{{ month }}" {% if month == selected_month %}selected{% endif %}>
-                            {{ month|replace('-', '.') }}
-                        </option>
-                    {% endfor %}
-                </select>
-                <a href="{{ url_for('export_to_excel', month=selected_month) }}" class="btn btn-success">
+                {{ form.month }}
+                {{ form.submit }}
+                <a href="{{ url_for('export_to_excel', month=selected_month) }}" class="btn btn-success ms-2">
                     Экспорт в Excel
                 </a>
                 <a href="{{ url_for('add_order') }}" class="btn btn-primary ms-2">
@@ -52,4 +48,3 @@
         </tbody>
     </table>
 {% endblock %}
-
