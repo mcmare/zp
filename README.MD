@@ -7,15 +7,14 @@ pip install flask flask-login flask-wtf pandas openpyxl bcrypt
 SECRET_KEY=your-secret-key
 ```
 генерация ключа через 
-```python
-os.urandom(24).hex()
-
+```bash
+python -c "import os; print(os.urandom(24).hex())"
 ```
 запуск приложения
 ```bash
-python app.py
+gunicorn --workers 3 --bind 0.0.0.0:8000 wsgi:app
 ```
-Приложение будет доступно по адресу http://127.0.0.1:5000.
+Приложение будет доступно по адресу http://127.0.0.1:8000.
 
 регистрация пользователей
 ```bash

@@ -6,22 +6,32 @@ from datetime import datetime
 import pandas as pd
 import bcrypt
 import os
+import logging
 from flask_wtf import FlaskForm
 from wtforms import StringField, FloatField, PasswordField, SubmitField, DateField, SelectField
 from wtforms.validators import DataRequired, NumberRange
 from wtforms.widgets import TextInput
 from flask_wtf.csrf import CSRFProtect
-from dotenv import load_dotenv
 
+# Настройка логирования
+logging.basicConfig(
+    filename='app.log',
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s: %(message)s'
+)
 
-
-load_dotenv()
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')  # Замените на безопасный ключ
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')  # Замените на безопасный ключ
+app.config['UPLOAD_FOLDER'] = 'temp'  # Папка для временных файлов Excel
+
 csrf = CSRFProtect(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Создание папки для временных файлов
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
 
 
 # Модель пользователя
@@ -105,6 +115,7 @@ def index():
                'date': datetime.strptime(row[3], '%Y-%m-%d').strftime('%d.%m.%Y')} for row in c.fetchall()]
     conn.close()
 
+    logging.info(f"User {current_user.username} viewed orders for month {selected_month}")
     return render_template('index.html', orders=orders, form=form, selected_month=selected_month)
 
 
@@ -134,6 +145,7 @@ def add_order():
         conn.commit()
         conn.close()
         flash('Запись добавлена!', 'success')
+        logging.info(f"User {current_user.username} added order {order_number} for {amount} on {date}")
         return redirect(url_for('index'))
 
     form.date.data = datetime.now()
@@ -173,6 +185,7 @@ def edit_order(id):
         conn.commit()
         conn.close()
         flash('Запись обновлена!', 'success')
+        logging.info(f"User {current_user.username} edited order {id} to {order_number} for {amount} on {date}")
         return redirect(url_for('index'))
 
     form.amount.data = order[1]
@@ -188,10 +201,17 @@ def edit_order(id):
 def delete_order(id):
     conn = sqlite3.connect('orders.db')
     c = conn.cursor()
+    c.execute('SELECT order_number FROM orders WHERE id = ? AND user_id = ?', (id, current_user.id))
+    order = c.fetchone()
+    if not order:
+        conn.close()
+        abort(404)
+
     c.execute('DELETE FROM orders WHERE id = ? AND user_id = ?', (id, current_user.id))
     conn.commit()
     conn.close()
     flash('Запись удалена!', 'success')
+    logging.info(f"User {current_user.username} deleted order {id} ({order[0]})")
     return redirect(url_for('index'))
 
 
@@ -209,10 +229,17 @@ def export_to_excel(month):
     conn.close()
 
     df = pd.DataFrame(orders)
-    filename = f"Orders_{month}.xlsx"
+    filename = os.path.join(app.config['UPLOAD_FOLDER'], f"Orders_{month}.xlsx")
     df.to_excel(filename, index=False)
 
-    return send_file(filename, as_attachment=True)
+    response = send_file(filename, as_attachment=True)
+    try:
+        os.remove(filename)  # Удаление временного файла после отправки
+    except Exception as e:
+        logging.error(f"Failed to delete temporary file {filename}: {e}")
+
+    logging.info(f"User {current_user.username} exported orders for month {month}")
+    return response
 
 
 # Авторизация
@@ -236,8 +263,10 @@ def login():
             user_obj = User(user[0], user[1])
             login_user(user_obj)
             flash('Вход выполнен!', 'success')
+            logging.info(f"User {username} logged in")
             return redirect(url_for('index'))
         flash('Неверный логин или пароль!', 'danger')
+        logging.warning(f"Failed login attempt for username {username}")
 
     return render_template('login.html', form=form)
 
@@ -246,11 +275,13 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    username = current_user.username
     logout_user()
     flash('Вы вышли из системы!', 'success')
+    logging.info(f"User {username} logged out")
     return redirect(url_for('login'))
 
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True)
+    app.run()
