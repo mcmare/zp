@@ -20,6 +20,9 @@
             </div>
         </form>
     </div>
+    <div class="mb-3">
+        <strong>Общая сумма за {{ selected_month.replace('-', '.') }}: {{ "%.2f"|format(total_amount) }}</strong>
+    </div>
     <table class="table table-striped">
         <thead>
             <tr>
